@@ -17,7 +17,7 @@ namespace Demiurgo.Component2D.Parallax
 {
     /// <summary>
     /// This Parallax sprite can be moved "manually", meaning it can be coupled to
-    /// other game actions' velocities like the player's movements and actions.
+    /// other game actions' velocities like the player's movements and/or camera.
     /// 
     /// Author: Henrique Gorni (gorni.henrique@gmail.com)
     /// URL: http://www.demiurgo.com.br
@@ -29,7 +29,9 @@ namespace Demiurgo.Component2D.Parallax
         /// </summary>
         /// <param name="texture">texture to use with the sprite</param>
         /// <param name="basePosition">initial/base position of the sprite</param>
-        /// <param name="bounds">screen/client bounds</param>
+        /// <param name="distanceFromCamera">the distance of the sprite from the camera into the horizon</param>
+        /// <param name="screenBounds">the client screen bounds</param>
+        /// <param name="viewingAngle">the viewing angle of the camera</param>
         /// <param name="hBuffer">X-axis buffer; this parameter defines how many sprites need
         /// to be aligned horizontally to create a transition smooth enough to avoid screen gaps;
         /// 2-3 is generally a good number</param>
@@ -38,53 +40,53 @@ namespace Demiurgo.Component2D.Parallax
         /// note that the horizontal sprite already counts as 1 vertical sprite; 2-3 is generally
         /// a good number</param>
         /// <param name="scale">scale of the sprite to be drawn (1.0 = 100%)</param>
-        /// <param name="velocityRatio">defines the ratio of the velocity used to move the sprite;
-        /// 1 = 100%; e.g. player is moving at (x,y) = (5,2) and velocity ratio is 0.5, then the
-        /// sprite velocity is (x,y) = (2.5,1)</param>
-        /// <param name="flipVelocity">flips the velocity every time the velocity is updated; 
-        /// e.g. player is moving at (x,y) = (5,2) and flip velocity is set to true, then the
+        /// <param name="flipDirection">flips the direction every time the velocity is updated; 
+        /// e.g. player is moving at (x,y) = (5,2) and flip direction is set to true, then the
         /// sprite velocity is (x,y) = (-5,-2)</param>
-        /// <param name="layerDepth">layer depth at which the sprite will be drawn</param>
-        public ParallaxMovableSprite(Texture2D texture, Vector2 basePosition, Rectangle bounds, int hBuffer = 2,
-            int vBuffer = 1, float scale = 1f, float velocityRatio = 1f, bool flipVelocity = true, float layerDepth = 0)
-            : base(texture, basePosition, bounds, hBuffer, vBuffer, scale, layerDepth)
+        public ParallaxMovableSprite(Texture2D texture, Vector2 basePosition, float distanceFromCamera,
+            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int hBuffer = 2, int vBuffer = 1,
+            float scale = 1f, bool flipDirection = true)
+            : base(texture, basePosition, distanceFromCamera, screenBounds, viewingAngle, hBuffer, vBuffer, scale)
         {
-            this.velocityRatio = velocityRatio;
-            this.flipVelocity = flipVelocity;
+            this.flipVelocity = flipDirection;
         }
 
         /// <summary>
         /// Updates the sprite and buffers at each update cycle on the X-axis and Y-axis
         /// </summary>
         /// <param name="gameTime">the GameTime instance, usually retrieved from the Game instance</param>
-        public override void Update(GameTime gameTime)
+        /// <param name="screenBounds">the client screen bounds</param>
+        public override void Update(GameTime gameTime, Rectangle screenBounds)
         {
             // Ignore update calls if disabled
-            if (!enabled) return;
+            if (!enabled)
+                return;
+            else
+                base.Update(gameTime, screenBounds);
 
             // Update positions e move sprites around to keep them 
             // on the drawable section of the screen
-            UpdateXAxis();
-            UpdateYAxis();
-
-            base.Update(gameTime);
+            UpdateXAxis(screenBounds);
+            UpdateYAxis(screenBounds);
         }
 
         /// <summary>
         /// Updates the sprite and buffers plus the velocity at each update cycle on the X-axis and Y-axis
         /// </summary>
         /// <param name="gameTime">the GameTime instance, usually retrieved from the Game instance</param>
+        /// <param name="screenBounds">the client screen bounds</param>
         /// <param name="velocity">velocity used to move the sprite; e.g. player's velocity</param>
-        public void Update(GameTime gameTime, Vector2 velocity)
+        public void Update(GameTime gameTime, Rectangle screenBounds, Vector2 velocity)
         {
             SetVelocity(velocity);
-            this.Update(gameTime);
+            this.Update(gameTime, screenBounds);
         }
 
         /// <summary>
         /// Updates X-axis sprites positions and moves X-axis buffers around
         /// </summary>
-        protected void UpdateXAxis()
+        /// <param name="screenBounds">the client screen bounds</param>
+        protected void UpdateXAxis(Rectangle screenBounds)
         {
             // Return if X-axis is locked
             if (lockXAxis) return;
@@ -101,7 +103,7 @@ namespace Demiurgo.Component2D.Parallax
                 {
                     positions[j].X += hLenScaled;
                 }
-                else if (positions[j].X >= bounds.Width)
+                else if (positions[j].X >= screenBounds.Width)
                 {
                     positions[j].X -= hLenScaled;
                 }
@@ -111,7 +113,8 @@ namespace Demiurgo.Component2D.Parallax
         /// <summary>
         /// Updates Y-axis sprites positions and moves Y-axis buffers around
         /// </summary>
-        protected void UpdateYAxis()
+        /// <param name="screenBounds">the client screen bounds</param>
+        protected void UpdateYAxis(Rectangle screenBounds)
         {
             // Return if Y-axis is locked
             if (lockYAxis) return;
@@ -128,7 +131,7 @@ namespace Demiurgo.Component2D.Parallax
                 {
                     positions[j].Y += vLenScaled;
                 }
-                else if (positions[j].Y >= bounds.Height)
+                else if (positions[j].Y >= screenBounds.Height)
                 {
                     positions[j].Y -= vLenScaled;
                 }
@@ -136,28 +139,22 @@ namespace Demiurgo.Component2D.Parallax
         }
 
         /// <summary>
-        /// Sets the velocity and applies the velocity ratio
+        /// Sets the velocity and applies the velocity adjustment factor
         /// </summary>
         /// <param name="velocity">velocity to be set for the sprite's movement</param>
         private void SetVelocity(Vector2 velocity)
         {
             this.velocity = flipVelocity ? -velocity : velocity;
-            this.velocity *= velocityRatio;
+            this.velocity *= velocityAdjustFactor;
         }
 
         // Velocity
-        protected float velocityRatio;
         protected Vector2 velocity = Vector2.Zero;
         protected bool flipVelocity;
         protected bool lockXAxis = false;
         protected bool lockYAxis = false;
 
         // Attributes
-        public float VelocityRatio
-        {
-            get { return velocityRatio; }
-        }
-
         public Vector2 Velocity
         {
             get { return velocity; }

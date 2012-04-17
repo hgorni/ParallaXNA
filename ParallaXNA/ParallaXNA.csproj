@@ -42,6 +42,9 @@
     <PlatformTarget>x86</PlatformTarget>
     <XnaCompressContent>true</XnaCompressContent>
   </PropertyGroup>
+  <PropertyGroup>
+    <SignAssembly>false</SignAssembly>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Xna.Framework, Version=4.0.0.0, Culture=neutral, PublicKeyToken=842cf8be1de50553, processorArchitecture=x86">
       <Private>False</Private>
@@ -92,11 +95,14 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ParallaxAutomaticSprite.cs" />
+    <Compile Include="ScrollingSprite.cs" />
     <Compile Include="ParallaxBaseSprite.cs" />
     <Compile Include="ParallaxManager.cs" />
     <Compile Include="ParallaxMovableSprite.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="bin\x86\Release\" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CSharp.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\XNA Game Studio\Microsoft.Xna.GameStudio.targets" />

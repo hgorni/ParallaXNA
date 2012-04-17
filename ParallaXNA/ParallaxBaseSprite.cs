@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 using System.Diagnostics;
+using System;
 
 /**
  * This work is licensed under the Creative Commons Attribution-ShareAlike 3.0 Unported License. 
@@ -32,7 +33,9 @@ namespace Demiurgo.Component2D.Parallax
         /// </summary>
         /// <param name="texture">texture to use with the sprite</param>
         /// <param name="basePosition">initial/base position of the sprite</param>
-        /// <param name="bounds">screen/client bounds</param>
+        /// <param name="distanceFromCamera">the distance of the sprite from the camera into the horizon</param>
+        /// <param name="screenBounds">the client screen bounds</param>
+        /// <param name="viewingAngle">the viewing angle of the camera</param>
         /// <param name="hBuffer">X-axis buffer; this parameter defines how many sprites need
         /// to be aligned horizontally to create a transition smooth enough to avoid screen gaps;
         /// 2-3 is generally a good number</param>
@@ -41,9 +44,9 @@ namespace Demiurgo.Component2D.Parallax
         /// note that the horizontal sprite already counts as 1 vertical sprite; 2-3 is generally
         /// a good number</param>
         /// <param name="scale">scale of the sprite to be drawn (1.0 = 100%)</param>
-        /// <param name="layerDepth">layer depth at which the sprite will be drawn</param>
-        public ParallaxBaseSprite(Texture2D texture, Vector2 basePosition, Rectangle bounds,
-            int hBuffer = 2, int vBuffer = 1, float scale = 1f, float layerDepth = 0)
+        public ParallaxBaseSprite(Texture2D texture, Vector2 basePosition, float distanceFromCamera,
+            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int hBuffer = 2,
+            int vBuffer = 1, float scale = 1f)
         {
             this.enabled = true; // default enabled
             this.hBuffer = hBuffer;
@@ -51,14 +54,18 @@ namespace Demiurgo.Component2D.Parallax
             this.texture = texture;
             this.scale = scale;
             this.basePosition = basePosition;
-            this.bounds = bounds;
-            this.layerDepth = layerDepth;
+            this.distanceFromCamera = distanceFromCamera;
+            this.screenBounds = screenBounds;
+            this.viewingAngle = viewingAngle;
 
             // hBuffer and vBuffer minimum value is 1
             Trace.Assert(hBuffer > 0 && vBuffer > 0);
 
+            // distanceFromCamera must be greater than 0
+            Trace.Assert(distanceFromCamera > 0);
+
             // Apply scale to fields
-            UpdateScales();
+            UpdateScales(screenBounds);
 
             InitializeBuffers();
         }
@@ -105,12 +112,43 @@ namespace Demiurgo.Component2D.Parallax
         /// <summary>
         /// Updates the scales of metrics according to the scale parameter
         /// </summary>
-        protected virtual void UpdateScales()
+        /// <param name="screenBounds">the client screen bounds</param>
+        protected virtual void UpdateScales(Rectangle screenBounds)
         {
+            // Update screen bounds
+            this.screenBounds = screenBounds;
+
+            // Update scales
             wTextureScaled = texture.Width * scale;
             hTextureScaled = texture.Height * scale;
             hLenScaled = hBuffer * wTextureScaled;
             vLenScaled = vBuffer * hTextureScaled;
+
+            // Calculate layer depth
+            CalculateLayerDepth();
+
+            // Keeps the calculation proportional across all screen sizes
+            float widthScreenFactor = 1f / screenBounds.Width;
+            float heightScreenFactor = 1f / screenBounds.Height;
+
+            // opposite = tan(theta) / 2 * adjacent
+            float triangleOpposite = (float)Math.Tan(viewingAngle) / 2 * distanceFromCamera;
+
+            // Calculate the proportion of velocity for each axis
+            float xAxisFactor = 1 / (triangleOpposite * widthScreenFactor * 2);
+            float yAxisFactor = 1 / (triangleOpposite * heightScreenFactor * 2);
+            this.velocityAdjustFactor = new Vector2(xAxisFactor, yAxisFactor);
+        }
+
+        /// <summary>
+        /// Set layer depth proportional to the distance from the camera
+        /// </summary>
+        private void CalculateLayerDepth()
+        {
+            if (spriteSortMode == SpriteSortMode.FrontToBack)
+                this.layerDepth = 1 / distanceFromCamera;
+            else
+                this.layerDepth = 1 - 1 / distanceFromCamera;
         }
 
         /// <summary>
@@ -118,7 +156,13 @@ namespace Demiurgo.Component2D.Parallax
         /// </summary>
         /// <param name="gameTime">GameTime object; usually retrieved from 
         /// the Game instance</param>
-        public virtual void Update(GameTime gameTime) { }
+        /// <param name="screenBounds">the client screen bounds</param>
+        public virtual void Update(GameTime gameTime, Rectangle screenBounds)
+        {
+            // Refactor metrics when screen size changes
+            if (this.screenBounds != screenBounds)
+                UpdateScales(screenBounds);
+        }
 
         // Fields
         protected bool enabled = true;
@@ -126,12 +170,20 @@ namespace Demiurgo.Component2D.Parallax
         protected Texture2D texture;
         protected Vector2 basePosition;
         protected Vector2[] positions;
-        protected Rectangle bounds;
 
         protected float scale;
         protected int hBuffer;
         protected int vBuffer;
         private float layerDepth;
+        private float distanceFromCamera;
+        private Rectangle screenBounds;
+        private float viewingAngle;
+        private SpriteSortMode spriteSortMode = SpriteSortMode.BackToFront;
+
+        // Defines how much of the actual camera/player velocity
+        // is used proportional to the distance of the layer
+        // from the camera into the horizon
+        protected Vector2 velocityAdjustFactor;
 
         // Scaled values
         protected float hLenScaled;
@@ -148,12 +200,6 @@ namespace Demiurgo.Component2D.Parallax
         public Vector2 BasePosition
         {
             get { return basePosition; }
-        }
-
-        public Rectangle Bounds
-        {
-            get { return bounds; }
-            set { bounds = value; }
         }
 
         public float Scale
@@ -184,6 +230,30 @@ namespace Demiurgo.Component2D.Parallax
         public float LayerDepth
         {
             get { return layerDepth; }
+        }
+
+        public float DistanceFromCamera
+        {
+            get { return distanceFromCamera; }
+        }
+
+        public float ViewingAngle
+        {
+            get { return viewingAngle; }
+        }
+
+        /// <summary>
+        /// Sets the SpriteSortMode. This affects how the sprites draw order
+        /// is sorted according to their layer depth.
+        /// </summary>
+        public SpriteSortMode @SpriteSortMode
+        {
+            get { return spriteSortMode; }
+            set
+            {
+                spriteSortMode = value;
+                CalculateLayerDepth();
+            }
         }
     }
 }
