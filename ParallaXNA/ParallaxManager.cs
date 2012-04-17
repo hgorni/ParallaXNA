@@ -46,6 +46,8 @@ namespace Demiurgo.Component2D.Parallax
 
         public override void Initialize()
         {
+
+
             base.Initialize();
         }
 
@@ -70,11 +72,11 @@ namespace Demiurgo.Component2D.Parallax
                 if (pSprite is ParallaxMovableSprite)
                 {
                     // Update velocity for ParallaxMovableSprite instances
-                    (pSprite as ParallaxMovableSprite).Update(gameTime, this.velocity);
+                    (pSprite as ParallaxMovableSprite).Update(gameTime, game.Window.ClientBounds, this.velocity);
                 }
                 else
                 {
-                    pSprite.Update(gameTime);
+                    pSprite.Update(gameTime, game.Window.ClientBounds);
                 }
             }
 
