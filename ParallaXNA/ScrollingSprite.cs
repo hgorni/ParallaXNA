@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework;
 
 /**
@@ -66,7 +66,7 @@ namespace Demiurgo.Component2D.Parallax
             for (int i = 0; i < positions.Length; ++i)
                 positions[i] += velocity;
 
-            // Update positions e move sprites around to keep them 
+            // Update positions and move sprites around to keep them 
             // on the drawable section of the screen
             UpdateXAxis(screenBounds);
             UpdateYAxis(screenBounds);
@@ -78,7 +78,7 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="screenBounds">the client screen bounds</param>
         protected void UpdateXAxis(Rectangle screenBounds)
         {
-            // Recalculate horizontal (X) positions e move sprites around the X-axis 
+            // Recalculate horizontal (X) positions and move sprites around the X-axis 
             // to avoid gaps in the drawable section of the screen
             for (int j = 0; j < positions.Length; ++j)
             {
@@ -99,7 +99,7 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="screenBounds">the client screen bounds</param>
         protected void UpdateYAxis(Rectangle screenBounds)
         {
-            // Recalculate vertical (Y) positions e move sprites around the Y-axis 
+            // Recalculate vertical (Y) positions and move sprites around the Y-axis 
             // to avoid gaps in the drawable screen
             for (int j = 0; j < positions.Length; ++j)
             {

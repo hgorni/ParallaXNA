@@ -48,7 +48,7 @@ namespace Demiurgo.Component2D.Parallax
             float scale = 1f, bool flipDirection = true)
             : base(texture, basePosition, distanceFromCamera, screenBounds, viewingAngle, hBuffer, vBuffer, scale)
         {
-            this.flipVelocity = flipDirection;
+            this.flipDirection = flipDirection;
         }
 
         /// <summary>
@@ -64,7 +64,7 @@ namespace Demiurgo.Component2D.Parallax
             else
                 base.Update(gameTime, screenBounds);
 
-            // Update positions e move sprites around to keep them 
+            // Update positions and move sprites around to keep them 
             // on the drawable section of the screen
             UpdateXAxis(screenBounds);
             UpdateYAxis(screenBounds);
@@ -91,7 +91,7 @@ namespace Demiurgo.Component2D.Parallax
             // Return if X-axis is locked
             if (lockXAxis) return;
 
-            // Recalculate horizontal (X) positions e move sprites around the X-axis 
+            // Recalculate horizontal (X) positions and move sprites around the X-axis 
             // to avoid gaps in the drawable section of the screen
             for (int j = 0; j < positions.Length; ++j)
             {
@@ -119,7 +119,7 @@ namespace Demiurgo.Component2D.Parallax
             // Return if Y-axis is locked
             if (lockYAxis) return;
 
-            // Recalculate vertical (Y) positions e move sprites around the Y-axis 
+            // Recalculate vertical (Y) positions and move sprites around the Y-axis 
             // to avoid gaps in the drawable screen
             for (int j = 0; j < positions.Length; ++j)
             {
@@ -144,13 +144,13 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="velocity">velocity to be set for the sprite's movement</param>
         private void SetVelocity(Vector2 velocity)
         {
-            this.velocity = flipVelocity ? -velocity : velocity;
+            this.velocity = flipDirection ? -velocity : velocity;
             this.velocity *= velocityAdjustFactor;
         }
 
         // Velocity
         protected Vector2 velocity = Vector2.Zero;
-        protected bool flipVelocity;
+        protected bool flipDirection;
         protected bool lockXAxis = false;
         protected bool lockYAxis = false;
 
@@ -161,10 +161,10 @@ namespace Demiurgo.Component2D.Parallax
             set { SetVelocity(value); }
         }
 
-        public bool FlipVelocity
+        public bool FlipDirection
         {
-            get { return flipVelocity; }
-            set { flipVelocity = value; }
+            get { return flipDirection; }
+            set { flipDirection = value; }
         }
 
         /// <summary>
