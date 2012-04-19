@@ -32,10 +32,10 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="distanceFromCamera">the distance of the sprite from the camera into the horizon</param>
         /// <param name="screenBounds">the client screen bounds</param>
         /// <param name="viewingAngle">the viewing angle of the camera</param>
-        /// <param name="hBuffer">X-axis buffer; this parameter defines how many sprites need
+        /// <param name="xBuffer">X-axis buffer; this parameter defines how many sprites need
         /// to be aligned horizontally to create a transition smooth enough to avoid screen gaps;
         /// 2-3 is generally a good number</param>
-        /// <param name="vBuffer">Y-axis buffer; this parameter defines how many sprites need
+        /// <param name="yBuffer">Y-axis buffer; this parameter defines how many sprites need
         /// to be aligned vertically to create a transition smooth enough to avoid screen gaps;
         /// note that the horizontal sprite already counts as 1 vertical sprite; 2-3 is generally
         /// a good number</param>
@@ -44,9 +44,9 @@ namespace Demiurgo.Component2D.Parallax
         /// e.g. player is moving at (x,y) = (5,2) and flip direction is set to true, then the
         /// sprite velocity is (x,y) = (-5,-2)</param>
         public ParallaxMovableSprite(Texture2D texture, Vector2 basePosition, float distanceFromCamera,
-            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int hBuffer = 2, int vBuffer = 1,
+            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int xBuffer = 2, int yBuffer = 1,
             float scale = 1f, bool flipDirection = true)
-            : base(texture, basePosition, distanceFromCamera, screenBounds, viewingAngle, hBuffer, vBuffer, scale)
+            : base(texture, basePosition, distanceFromCamera, screenBounds, viewingAngle, xBuffer, yBuffer, scale)
         {
             this.flipDirection = flipDirection;
         }
@@ -76,7 +76,7 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="gameTime">the GameTime instance, usually retrieved from the Game instance</param>
         /// <param name="screenBounds">the client screen bounds</param>
         /// <param name="velocity">velocity used to move the sprite; e.g. player's velocity</param>
-        public void Update(GameTime gameTime, Rectangle screenBounds, Vector2 velocity)
+        public override void Update(GameTime gameTime, Rectangle screenBounds, Vector2 velocity)
         {
             SetVelocity(velocity);
             this.Update(gameTime, screenBounds);
@@ -91,21 +91,69 @@ namespace Demiurgo.Component2D.Parallax
             // Return if X-axis is locked
             if (lockXAxis) return;
 
-            // Recalculate horizontal (X) positions and move sprites around the X-axis 
-            // to avoid gaps in the drawable section of the screen
-            for (int j = 0; j < positions.Length; ++j)
+            // Checks if buffer sprite has to be reallocated to the LEFT (positive direction) or 
+            // to the RIGHT (negative direction) when offscreen
+            if (velocity.X > 0) // Positive direction (moving to the RIGHT)
             {
-                // Update velocity
-                positions[j].X += velocity.X;
+                // Check for each line of the sprite buffer matrix
+                for (int m = 0; m < yBuffer; ++m)
+                {
+                    // Is the LAST sprite in this line offscreen ?
+                    int lastColumnIndex = xBuffer - 1;
+                    if (positions[m, lastColumnIndex].X >= screenBounds.Width)
+                    {
+                        // Recalculate LAST sprite's position to be reallocated to
+                        // the position before the current FIRST sprite
+                        positions[m, lastColumnIndex].X = positions[m, 0].X - wTextureScaled;
+                        Vector2 lastPosition = positions[m, lastColumnIndex];
 
-                // Adjust offscreen sprites
-                if (positions[j].X + wTextureScaled <= 0)
-                {
-                    positions[j].X += hLenScaled;
+                        // Shift all sprites one index to the RIGHT so that the FIRST
+                        // index (m, 0) is free
+                        for (int n = xBuffer - 1; n > 0; --n)
+                        {
+                            positions[m, n] = positions[m, n - 1];
+                        }
+
+                        // Reallocate LAST sprite to the (now free) FIRST index
+                        positions[m, 0] = lastPosition;
+                    }
                 }
-                else if (positions[j].X >= screenBounds.Width)
+            }
+            else if (velocity.X < 0) // Negative direction (moving to the LEFT)
+            {
+                // Check for each line of the sprite buffer matrix
+                for (int m = 0; m < yBuffer; ++m)
                 {
-                    positions[j].X -= hLenScaled;
+                    // Is the FIRST sprite in this line offscreen ?
+                    if (positions[m, 0].X + wTextureScaled <= 0)
+                    {
+                        // Recalculate FIRST sprite's position to be reallocated to
+                        // the position after the current LAST sprite
+                        positions[m, 0].X = positions[m, xBuffer - 1].X + wTextureScaled;
+                        Vector2 firstPosition = positions[m, 0];
+
+                        // Shift all sprites one index to the LEFT so that the LAST
+                        // index (m, xBuffer-1) is free
+                        for (int n = 0; n < xBuffer - 1; ++n)
+                        {
+                            positions[m, n] = positions[m, n + 1];
+                        }
+
+                        // Reallocate FIRST sprite to the (now free) LAST index
+                        positions[m, xBuffer - 1] = firstPosition;
+                    }
+                }
+            }
+
+            // Apply to each line of the sprite buffer matrix
+            for (int m = 0; m < yBuffer; ++m)
+            {
+                // Apply velocity's X-direction to the FIRST position (m, 0) of each line of the matrix and
+                // reallocate each consecutive position (m, 1..n-1) at an offset from the FIRST position
+                positions[m, 0].X += velocity.X;
+                for (int n = 1; n < xBuffer; ++n)
+                {
+                    positions[m, n].X = positions[m, n - 1].X + wTextureScaled;
                 }
             }
         }
@@ -116,24 +164,70 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="screenBounds">the client screen bounds</param>
         protected void UpdateYAxis(Rectangle screenBounds)
         {
-            // Return if Y-axis is locked
+            //// Return if Y-axis is locked
             if (lockYAxis) return;
 
-            // Recalculate vertical (Y) positions and move sprites around the Y-axis 
-            // to avoid gaps in the drawable screen
-            for (int j = 0; j < positions.Length; ++j)
+            // Checks if buffer sprite has to be reallocated to the TOP (downwards direction) or 
+            // to the BOTTOM (upwards direction) when offscreen
+            if (velocity.Y > 0) // Downwards direction
             {
-                // Update velocity
-                positions[j].Y += velocity.Y;
+                // Check for each column of the sprite buffer matrix
+                for (int n = 0; n < xBuffer; ++n)
+                {
+                    // Is the BOTTOM sprite in this column offscreen ?
+                    int bottomColumnIndex = yBuffer - 1;
+                    if (positions[bottomColumnIndex, n].Y >= screenBounds.Height)
+                    {
+                        // Recalculate BOTTOM sprite's position to be reallocated to
+                        // the position before the current TOP sprite
+                        positions[bottomColumnIndex, n].Y = positions[0, n].Y - hTextureScaled;
+                        Vector2 bottomPosition = positions[bottomColumnIndex, n];
 
-                // Adjust offscreen sprites
-                if (positions[j].Y + hTextureScaled <= 0)
-                {
-                    positions[j].Y += vLenScaled;
+                        // Shift all sprites so that the first index (0, n) is free
+                        for (int m = yBuffer - 1; m > 0; --m)
+                        {
+                            positions[m, n] = positions[m - 1, n];
+                        }
+
+                        // Reallocate BOTTOM sprite to the (now free) TOP index
+                        positions[0, n] = bottomPosition;
+                    }
                 }
-                else if (positions[j].Y >= screenBounds.Height)
+            }
+            else if (velocity.Y < 0) // Upwards direction
+            {
+                // Check for each column of the sprite buffer matrix
+                for (int n = 0; n < xBuffer; ++n)
                 {
-                    positions[j].Y -= vLenScaled;
+                    // Is the TOP sprite in this column offscreen ?
+                    if (positions[0, n].Y + hTextureScaled <= 0)
+                    {
+                        // Recalculate TOP sprite's position to be reallocated to the position 
+                        // after the current BOTTOM sprite
+                        positions[0, n].Y = positions[yBuffer - 1, n].Y + hTextureScaled;
+                        Vector2 topPosition = positions[0, n];
+
+                        // Shift all sprites so that the BOTTOM index (yBuffer-1, n) is free
+                        for (int m = 0; m < yBuffer - 1; ++m)
+                        {
+                            positions[m, n] = positions[m + 1, n];
+                        }
+
+                        // Reallocate TOP sprite to the (now free) BOTTOM index
+                        positions[yBuffer - 1, n] = topPosition;
+                    }
+                }
+            }
+
+            // Apply to each column of the sprite buffer matrix
+            for (int n = 0; n < xBuffer; ++n)
+            {
+                // Apply velocity's Y-direction to the TOP position (0, n) of each column of the matrix and
+                // reallocate each consecutive position (1..m-1, n) at an offset from the TOP position
+                positions[0, n].Y += velocity.Y;
+                for (int m = 1; m < yBuffer; ++m)
+                {
+                    positions[m, n].Y = positions[m - 1, n].Y + hTextureScaled;
                 }
             }
         }
@@ -161,6 +255,9 @@ namespace Demiurgo.Component2D.Parallax
             set { SetVelocity(value); }
         }
 
+        /// <summary>
+        /// Flips velocity direction
+        /// </summary>
         public bool FlipDirection
         {
             get { return flipDirection; }
@@ -185,6 +282,4 @@ namespace Demiurgo.Component2D.Parallax
             set { lockYAxis = value; }
         }
     }
-
-
 }

@@ -36,21 +36,21 @@ namespace Demiurgo.Component2D.Parallax
         /// <param name="distanceFromCamera">the distance of the sprite from the camera into the horizon</param>
         /// <param name="screenBounds">the client screen bounds</param>
         /// <param name="viewingAngle">the viewing angle of the camera</param>
-        /// <param name="hBuffer">X-axis buffer; this parameter defines how many sprites need
+        /// <param name="xBuffer">X-axis buffer; this parameter defines how many sprites need
         /// to be aligned horizontally to create a transition smooth enough to avoid screen gaps;
         /// 2-3 is generally a good number</param>
-        /// <param name="vBuffer">Y-axis buffer; this parameter defines how many sprites need
+        /// <param name="yBuffer">Y-axis buffer; this parameter defines how many sprites need
         /// to be aligned vertically to create a transition smooth enough to avoid screen gaps;
         /// note that the horizontal sprite already counts as 1 vertical sprite; 2-3 is generally
         /// a good number</param>
         /// <param name="scale">scale of the sprite to be drawn (1.0 = 100%)</param>
         public ParallaxBaseSprite(Texture2D texture, Vector2 basePosition, float distanceFromCamera,
-            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int hBuffer = 2,
-            int vBuffer = 1, float scale = 1f)
+            Rectangle screenBounds, float viewingAngle = MathHelper.PiOver4, int xBuffer = 2,
+            int yBuffer = 1, float scale = 1f)
         {
             this.enabled = true; // default enabled
-            this.hBuffer = hBuffer;
-            this.vBuffer = vBuffer;
+            this.xBuffer = xBuffer;
+            this.yBuffer = yBuffer;
             this.texture = texture;
             this.scale = scale;
             this.basePosition = basePosition;
@@ -58,8 +58,8 @@ namespace Demiurgo.Component2D.Parallax
             this.screenBounds = screenBounds;
             this.viewingAngle = viewingAngle;
 
-            // hBuffer and vBuffer minimum value is 1
-            Trace.Assert(hBuffer > 0 && vBuffer > 0);
+            // xBuffer and yBuffer minimum value is 1
+            Trace.Assert(xBuffer > 0 && yBuffer > 0);
 
             // distanceFromCamera must be greater than 0
             Trace.Assert(distanceFromCamera > 0);
@@ -71,31 +71,23 @@ namespace Demiurgo.Component2D.Parallax
         }
 
         /// <summary>
-        /// Initializes sprite buffers
+        /// Initializes sprite buffer matrix
         /// </summary>
         protected virtual void InitializeBuffers()
         {
-            // Initialize buffer with first sprite positioned at base position
-            positions = new Vector2[hBuffer * vBuffer];
-            this.positions[0] = this.basePosition;
+            // Initialize buffer matrix (yBuffer = lines, xBuffer = columns)
+            positions = new Vector2[yBuffer, xBuffer];
 
-            // Add each additional sprite positioned at an offset from the sprite preceding it
-            for (int h = 1; h < hBuffer; ++h)
+            // Add each sprite positioned at an offset from the base position;
+            // Matrix (m, n) = (line, column) 
+            for (int m = 0; m < yBuffer; ++m)
             {
-                this.positions[h] = new Vector2(positions[h - 1].X + wTextureScaled, positions[h - 1].Y);
-            }
-
-            // Add vertical buffer sprites relative to the horizontal sprite
-            // Note: each horizontal sprite count as one vertical sprite each; therefore for each horizontal sprite
-            // vBuffer-1 sprites are added
-            int vIdx = hBuffer;
-            for (int h = 0; h < hBuffer; ++h)
-            {
-                Vector2 hSprite = positions[h];
-
-                for (int v = 1; v < vBuffer; ++v)
+                for (int n = 0; n < xBuffer; ++n)
                 {
-                    positions[vIdx++] = new Vector2(hSprite.X, hSprite.Y + hTextureScaled * v);
+
+                    this.positions[m, n] = new Vector2(
+                        this.basePosition.X + wTextureScaled * n,
+                        this.basePosition.Y + hTextureScaled * m);
                 }
             }
         }
@@ -104,9 +96,9 @@ namespace Demiurgo.Component2D.Parallax
         /// Gets the positions at which the sprite will be drawn on the screen
         /// </summary>
         /// <returns>list of positions to be drawn</returns>
-        public Vector2[] GetPositions()
+        public Vector2[,] GetPositions()
         {
-            return visible ? this.positions : new Vector2[0];
+            return visible ? this.positions : new Vector2[0, 0];
         }
 
         /// <summary>
@@ -121,8 +113,6 @@ namespace Demiurgo.Component2D.Parallax
             // Update scales
             wTextureScaled = texture.Width * scale;
             hTextureScaled = texture.Height * scale;
-            hLenScaled = hBuffer * wTextureScaled;
-            vLenScaled = vBuffer * hTextureScaled;
 
             // Calculate layer depth
             CalculateLayerDepth();
@@ -164,16 +154,29 @@ namespace Demiurgo.Component2D.Parallax
                 UpdateScales(screenBounds);
         }
 
+        /// <summary>
+        /// Called at each update cycle of the game
+        /// </summary>
+        /// <param name="gameTime">GameTime object; usually retrieved from 
+        /// the Game instance</param>
+        /// <param name="screenBounds">the client screen bounds</param>
+        /// <param name="velocity">velocity to be set for the sprite's movement</param>
+        public virtual void Update(GameTime gameTime, Rectangle screenBounds, Vector2 velocity)
+        {
+            this.Update(gameTime, screenBounds);
+        }
+
         // Fields
         protected bool enabled = true;
         protected bool visible = true;
         protected Texture2D texture;
         protected Vector2 basePosition;
-        protected Vector2[] positions;
+        protected Vector2[,] positions;
+        protected bool autonomous = false;
 
         protected float scale;
-        protected int hBuffer;
-        protected int vBuffer;
+        protected int xBuffer;
+        protected int yBuffer;
         private float layerDepth;
         private float distanceFromCamera;
         private Rectangle screenBounds;
@@ -186,8 +189,6 @@ namespace Demiurgo.Component2D.Parallax
         protected Vector2 velocityAdjustFactor;
 
         // Scaled values
-        protected float hLenScaled;
-        protected float vLenScaled;
         protected float wTextureScaled;
         protected float hTextureScaled;
 
@@ -254,6 +255,16 @@ namespace Demiurgo.Component2D.Parallax
                 spriteSortMode = value;
                 CalculateLayerDepth();
             }
+        }
+
+        /// <summary>
+        /// If set to Autonomous = true, the sprite will move at a constant velocity
+        /// defined by the "Velocity" attribute
+        /// </summary>
+        public bool Autonomous
+        {
+            get { return autonomous; }
+            set { autonomous = value; }
         }
     }
 }

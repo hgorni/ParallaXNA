@@ -95,7 +95,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ScrollingSprite.cs" />
     <Compile Include="ParallaxBaseSprite.cs" />
     <Compile Include="ParallaxManager.cs" />
     <Compile Include="ParallaxMovableSprite.cs" />

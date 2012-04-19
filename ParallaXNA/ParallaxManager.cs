@@ -69,14 +69,16 @@ namespace Demiurgo.Component2D.Parallax
             // Update the sprites
             foreach (ParallaxBaseSprite pSprite in parallaxSprites)
             {
-                if (pSprite is ParallaxMovableSprite)
+                // Sprite is autonomous ?
+                if (pSprite.Autonomous)
                 {
-                    // Update velocity for ParallaxMovableSprite instances
-                    (pSprite as ParallaxMovableSprite).Update(gameTime, game.Window.ClientBounds, this.velocity);
-                }
-                else
-                {
+                    // Update without velocity
                     pSprite.Update(gameTime, game.Window.ClientBounds);
+                }
+                else 
+                {
+                    // Update with velocity
+                    pSprite.Update(gameTime, game.Window.ClientBounds, this.velocity);
                 }
             }
 
